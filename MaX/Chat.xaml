@@ -18,7 +18,7 @@
             <Border Background="#1ABC9C" CornerRadius="5" Margin="10" Padding="5">
                 <StackPanel Orientation="Horizontal">
                     <Ellipse Width="15" Height="15" Fill="Green" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="CurrentUser" Text="Вы (Online)" Foreground="White" Margin="5,0,0,0"/>
+                    <TextBlock x:Name="CurrentUser" Text="Вы (Online)" Foreground="White" Margin="5,0,0,0" FontSize="20"/>
                 </StackPanel>
             </Border>
             <ListBox x:Name="UsersList" Margin="10" Background="#2C2C2C" Foreground="White" BorderThickness="0"/>
@@ -31,7 +31,7 @@
             </Grid.RowDefinitions>
 
             <ScrollViewer x:Name="ChatScroll" VerticalScrollBarVisibility="Auto" Background="#252526">
-                <StackPanel x:Name="MessagesPanel" Margin="10"/>
+                <StackPanel x:Name="MessagesPanel" Margin="10" Background="Black"/>
             </ScrollViewer>
 
             <Grid Grid.Row="1">

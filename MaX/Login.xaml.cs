@@ -22,7 +22,6 @@ namespace MaX
         {
             InitializeComponent();
         }
-        Chat chat = new Chat();
         string NikName;
 
         private void Whod_Click(object sender, RoutedEventArgs e)
@@ -30,6 +29,7 @@ namespace MaX
             if (Nik.Text != "")
             {
                 NikName = Nik.Text;
+                Chat chat = new Chat(NikName);
                 chat.Show();
                 this.Close();
             }

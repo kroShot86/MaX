@@ -19,14 +19,25 @@ namespace MaX
     /// </summary>
     public partial class Chat : Window
     {
-        public Chat()
+        string tek_message = "";
+        public Chat(string NikName)
         {
             InitializeComponent();
+            CurrentUser.Text = NikName;
         }
 
         private void Send_Click(object sender, RoutedEventArgs e)
         {
+            tek_message = Message.Text;
 
+            TextBlock message = new TextBlock();
+            message.Foreground = Brushes.White;
+            message.FontSize = 20;
+
+            message.Text = tek_message;
+            MessagesPanel.Children.Add(message);
+
+            Message.Text = "";
         }
     }
 }
