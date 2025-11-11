@@ -1,0 +1,48 @@
+﻿<Window x:Class="MaX.Chat"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MaX"
+        Height="600" Width="900"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="Segoe UI"
+        Background="#1E1E1E">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="250"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        
+        <StackPanel Grid.Column="0" Background="#2C2C2C">
+            <TextBlock Text="Пользователи" FontSize="18" FontWeight="Bold" Foreground="White" Margin="10"/>
+            <Border Background="#1ABC9C" CornerRadius="5" Margin="10" Padding="5">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="15" Height="15" Fill="Green" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="CurrentUser" Text="Вы (Online)" Foreground="White" Margin="5,0,0,0"/>
+                </StackPanel>
+            </Border>
+            <ListBox x:Name="UsersList" Margin="10" Background="#2C2C2C" Foreground="White" BorderThickness="0"/>
+        </StackPanel>
+
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="10*"/>
+                <RowDefinition Height="1*"/>
+            </Grid.RowDefinitions>
+
+            <ScrollViewer x:Name="ChatScroll" VerticalScrollBarVisibility="Auto" Background="#252526">
+                <StackPanel x:Name="MessagesPanel" Margin="10"/>
+            </ScrollViewer>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="10*"/>
+                    <ColumnDefinition Width="2*"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="Message" Grid.Column="0" FontSize="16" Background="#333333" Padding="5" Foreground="White" BorderThickness="0" HorizontalContentAlignment="Left" AcceptsReturn="False" TextWrapping="NoWrap" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Auto"/>
+                <Button x:Name="Send" Grid.Column="1" Content="Отправить" Width="100" Background="#1ABC9C" Foreground="White" FontSize="19" Click="Send_Click"/>
+            </Grid>
+        </Grid>
+        
+    </Grid>
+</Window>

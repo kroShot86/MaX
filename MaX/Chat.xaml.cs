@@ -10,17 +10,23 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
 using System.Windows.Shapes;
 
 namespace MaX
 {
-
-    public partial class MainWindow : Window
+    /// <summary>
+    /// Логика взаимодействия для Chat.xaml
+    /// </summary>
+    public partial class Chat : Window
     {
-        public MainWindow()
+        public Chat()
         {
             InitializeComponent();
+        }
+
+        private void Send_Click(object sender, RoutedEventArgs e)
+        {
+
         }
     }
 }
