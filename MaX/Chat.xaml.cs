@@ -12,6 +12,8 @@ using System.Threading;
 using System.Windows.Shapes;
 using Microsoft.VisualBasic;
 using Newtonsoft.Json;
+using NAudio.Wave;
+using System.IO;
 
 
 namespace MaX
@@ -43,9 +45,18 @@ namespace MaX
             };
             LoadMessageHistory();
             this.PreviewKeyDown += Chat_PreviewKeyDown;
+            Message.TextChanged += Message_TextChanged;
+
+            RecordVoiceButton.PreviewMouseLeftButtonDown += (s, e) => StartRecording();
+            RecordVoiceButton.PreviewMouseLeftButtonUp += (s, e) => StopRecording();
 
             ConnectToServer();
         }
+
+        private WaveInEvent waveIn;
+        private MemoryStream audioStream;
+        private bool isRecording = false;
+
         class ChatMessageRecord
         {
             public string Sender { get; set; }
@@ -303,7 +314,6 @@ namespace MaX
 
             if (isOwn)
             {
-                // Контекстное меню для редактирования/удаления
                 ContextMenu menu = new ContextMenu();
 
                 MenuItem edit = new MenuItem { Header = "Редактировать" };
@@ -314,7 +324,7 @@ namespace MaX
                     var msg = messages.FirstOrDefault(m => m.Panel == panel);
                     if (msg != null)
                     {
-                        EditMessage(msg); // вызываем метод с правильным типом
+                        EditMessage(msg);
                     }
                 };
 
@@ -460,7 +470,6 @@ namespace MaX
 
         private string ShowInputDialog(string prompt, string defaultText = "")
         {
-            // Создаем окно
             Window inputWindow = new Window
             {
                 Width = 400,
@@ -472,7 +481,6 @@ namespace MaX
                 Owner = this
             };
 
-            // Создаем StackPanel для контента
             StackPanel panel = new StackPanel { Margin = new Thickness(10) };
 
             TextBlock textBlock = new TextBlock
@@ -520,7 +528,6 @@ namespace MaX
 
             inputWindow.Content = panel;
 
-            // Показываем окно модально
             bool? result = inputWindow.ShowDialog();
 
             if (result == true)
@@ -639,7 +646,7 @@ namespace MaX
             };
             resetButton.Click += (s, e) =>
             {
-                SearchMessages(""); // пустой запрос показывает все
+                SearchMessages("");
                 searchBox.Text = "";
             };
 
@@ -673,6 +680,79 @@ namespace MaX
             }
 
             ChatScroll.ScrollToEnd();
+        }
+
+        private void Message_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(Message.Text))
+            {
+                Send.Visibility = Visibility.Collapsed;
+                RecordVoiceButton.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                Send.Visibility = Visibility.Visible;
+                RecordVoiceButton.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void StartRecording()
+        {
+            waveIn = new WaveInEvent();
+            waveIn.WaveFormat = new WaveFormat(44100, 1);
+            audioStream = new MemoryStream();
+
+            waveIn.DataAvailable += (s, a) =>
+            {
+                audioStream.Write(a.Buffer, 0, a.BytesRecorded);
+            };
+
+            waveIn.RecordingStopped += (s, a) =>
+            {
+                waveIn.Dispose();
+                waveIn = null;
+
+                byte[] wavBytes;
+                string tempFile;
+                using (var wavStream = new MemoryStream())
+                {
+                    using (var writer = new WaveFileWriter(wavStream, new WaveFormat(44100, 1)))
+                    {
+                        audioStream.Position = 0;
+                        audioStream.CopyTo(writer);
+                    }
+                    wavBytes = wavStream.ToArray();
+                }
+
+                tempFile = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"voice_{Guid.NewGuid()}.wav");
+                File.WriteAllBytes(tempFile, wavBytes);
+
+                AddFileMessage(CurrentUser.Text, "Голосовое сообщение.wav", tempFile, true);
+
+                string header = $"FILE:{System.IO.Path.GetFileName(tempFile)}|.wav|{wavBytes.Length}\n";
+                byte[] headerBytes = Encoding.UTF8.GetBytes(header);
+                stream.Write(headerBytes, 0, headerBytes.Length);
+                stream.Write(wavBytes, 0, wavBytes.Length);
+
+                audioStream.Dispose();
+                isRecording = false;
+            };
+
+            waveIn.StartRecording();
+            isRecording = true;
+        }
+
+        private void StopRecording()
+        {
+            if (isRecording && waveIn != null)
+            {
+                waveIn.StopRecording();
+            }
+        }
+
+        private void RecordVoiceButton_Click(object sender, RoutedEventArgs e)
+        {
+            
         }
     }
 }

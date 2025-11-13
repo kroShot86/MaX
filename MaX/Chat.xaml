@@ -51,6 +51,7 @@
                 <Button x:Name="SendFile" Grid.Column="1" Content="📎" Background="#3498DB" Foreground="White" FontSize="34" Click="SendFile_Click"/>
                 <Button x:Name="Smile" Grid.Column="2" Content="😀" FontSize="36" Background="#FF51CEDE"/>
                 <Button x:Name="Send" Grid.Column="3" Content="Отправить" Width="100" Background="#1ABC9C" Foreground="White" FontSize="19" Click="Send_Click"/>
+                <Button x:Name="RecordVoiceButton" Grid.Column="3" Content="🎤" Background="#E67E22" Foreground="White" FontSize="36" Click="RecordVoiceButton_Click" Visibility="Collapsed"/>
                 <WrapPanel x:Name="SmilePanel" Grid.Row="1" Grid.ColumnSpan="3" Visibility="Collapsed" Background="#333333" Margin="5" HorizontalAlignment="Left" />
             </Grid>
         </Grid>
