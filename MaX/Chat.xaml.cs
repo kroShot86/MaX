@@ -42,6 +42,7 @@ namespace MaX
                     : Visibility.Visible;
             };
             LoadMessageHistory();
+            this.PreviewKeyDown += Chat_PreviewKeyDown;
 
             ConnectToServer();
         }
@@ -414,6 +415,13 @@ namespace MaX
         private void Del_Chat_Click(object sender, RoutedEventArgs e)
         {
             MessagesPanel.Children.Clear();
+
+            messages.Clear();
+
+            if (System.IO.File.Exists(historyFile))
+            {
+                System.IO.File.Delete(historyFile);
+            }
         }
 
         private void InitializeSmilePanel()
@@ -479,7 +487,6 @@ namespace MaX
                 Margin = new Thickness(0, 0, 0, 10)
             };
 
-            // Кнопки
             StackPanel buttonsPanel = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
@@ -575,6 +582,97 @@ namespace MaX
             {
                 AddMessage(r.Sender, r.Text, r.IsOwn);
             }
+        }
+        private void Chat_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.F && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            {
+                e.Handled = true;
+                OpenSearchWindow();
+            }
+        }
+
+        private void OpenSearchWindow()
+        {
+            // Окно поиска
+            Window searchWindow = new Window
+            {
+                Title = "Поиск сообщений",
+                Width = 400,
+                Height = 150,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                ResizeMode = ResizeMode.NoResize,
+                Owner = this
+            };
+
+            StackPanel panel = new StackPanel { Margin = new Thickness(10) };
+
+            TextBox searchBox = new TextBox
+            {
+                Width = 360,
+                Height = 25,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+
+            StackPanel buttonsPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+
+            Button findButton = new Button
+            {
+                Content = "Найти",
+                Width = 75,
+                Margin = new Thickness(5, 0, 0, 0)
+            };
+            findButton.Click += (s, e) =>
+            {
+                SearchMessages(searchBox.Text);
+            };
+
+            Button resetButton = new Button
+            {
+                Content = "Сброс",
+                Width = 75,
+                Margin = new Thickness(5, 0, 0, 0)
+            };
+            resetButton.Click += (s, e) =>
+            {
+                SearchMessages(""); // пустой запрос показывает все
+                searchBox.Text = "";
+            };
+
+            buttonsPanel.Children.Add(findButton);
+            buttonsPanel.Children.Add(resetButton);
+
+            panel.Children.Add(searchBox);
+            panel.Children.Add(buttonsPanel);
+
+            searchWindow.Content = panel;
+            searchWindow.ShowDialog();
+        }
+
+        private void SearchMessages(string query)
+        {
+            query = query?.Trim().ToLower();
+            if (string.IsNullOrEmpty(query))
+            {
+                foreach (var msg in messages)
+                    msg.Panel.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                foreach (var msg in messages)
+                {
+                    if (msg.Text.ToLower().Contains(query) || msg.Sender.ToLower().Contains(query))
+                        msg.Panel.Visibility = Visibility.Visible;
+                    else
+                        msg.Panel.Visibility = Visibility.Collapsed;
+                }
+            }
+
+            ChatScroll.ScrollToEnd();
         }
     }
 }
