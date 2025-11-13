@@ -32,7 +32,6 @@ namespace MaX
             };
 
             InitializeSmilePanel();
-
             Smile.Click += (s, e) =>
             {
                 SmilePanel.Visibility = SmilePanel.Visibility == Visibility.Visible
@@ -50,10 +49,7 @@ namespace MaX
                 byte[] data = Encoding.UTF8.GetBytes($"STATUS:{CurrentUser.Text}|{status}");
                 stream.Write(data, 0, data.Length);
             }
-            catch
-            {
-
-            }
+            catch { }
         }
 
         private void ConnectToServer()
@@ -80,80 +76,26 @@ namespace MaX
 
         private void ReceiveMessages()
         {
-            byte[] buffer = new byte[1024];
+            var buffer = new byte[4096];
 
             while (true)
             {
                 try
                 {
-                    int bytes = stream.Read(buffer, 0, buffer.Length);
-                    if (bytes == 0) break;
+                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
+                    if (bytesRead == 0) break;
 
-                    string message = Encoding.UTF8.GetString(buffer, 0, bytes);
+                    string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
                     Dispatcher.Invoke(() =>
                     {
                         if (message.StartsWith("USERS:"))
                         {
-                            string[] users = message.Substring(6).Split(',');
-                            UsersList.Items.Clear();
-
-                            foreach (var entry in users)
-                            {
-                                if (string.IsNullOrWhiteSpace(entry)) continue;
-
-                                string[] parts = entry.Split('|');
-                                string nameText = parts[0];
-                                string statusText = parts.Length > 1 ? parts[1].ToUpper() : "OFFLINE";
-
-                                if (nameText == CurrentUser.Text) continue;
-
-                                StackPanel userPanel = new StackPanel
-                                {
-                                    Orientation = Orientation.Horizontal,
-                                    Margin = new Thickness(5)
-                                };
-
-                                Brush statusBrush = Brushes.Gray;
-
-                                switch (statusText)
-                                {
-                                    case "ONLINE":
-                                        statusBrush = Brushes.Green;
-                                        break;
-                                    case "TYPING":
-                                        statusBrush = Brushes.Yellow;
-                                        break;
-                                    case "OFFLINE":
-                                        statusBrush = Brushes.Gray;
-                                        break;
-                                    default:
-                                        statusBrush = Brushes.Gray;
-                                        break;
-                                }
-
-                                Ellipse statusCircle = new Ellipse
-                                {
-                                    Width = 10,
-                                    Height = 10,
-                                    Fill = statusBrush,
-                                    VerticalAlignment = VerticalAlignment.Center
-                                };
-
-                                // имя + статус
-                                TextBlock name = new TextBlock
-                                {
-                                    Text = statusText == "TYPING" ? $"{nameText} (печатает...)" : nameText,
-                                    Foreground = Brushes.White,
-                                    FontSize = 16,
-                                    Margin = new Thickness(5, 0, 0, 0),
-                                    VerticalAlignment = VerticalAlignment.Center
-                                };
-
-                                userPanel.Children.Add(statusCircle);
-                                userPanel.Children.Add(name);
-                                UsersList.Items.Add(userPanel);
-                            }
+                            UpdateUsersList(message.Substring(6));
+                        }
+                        else if (message.StartsWith("FILE:"))
+                        {
+                            ReceiveFile(message);
                         }
                         else
                         {
@@ -174,33 +116,103 @@ namespace MaX
             }
         }
 
+        private void UpdateUsersList(string usersStr)
+        {
+            UsersList.Items.Clear();
+            string[] users = usersStr.Split(',');
+
+            foreach (var entry in users)
+            {
+                if (string.IsNullOrWhiteSpace(entry)) continue;
+
+                string[] parts = entry.Split('|');
+                string nameText = parts[0];
+                string statusText = parts.Length > 1 ? parts[1].ToUpper() : "OFFLINE";
+
+                if (nameText == CurrentUser.Text) continue;
+
+                StackPanel userPanel = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Margin = new Thickness(5)
+                };
+
+                Brush statusBrush = Brushes.Gray;
+                switch (statusText)
+                {
+                    case "ONLINE": statusBrush = Brushes.Green; break;
+                    case "TYPING": statusBrush = Brushes.Yellow; break;
+                    case "OFFLINE": statusBrush = Brushes.Gray; break;
+                }
+
+                Ellipse statusCircle = new Ellipse
+                {
+                    Width = 10,
+                    Height = 10,
+                    Fill = statusBrush,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+
+                TextBlock name = new TextBlock
+                {
+                    Text = statusText == "TYPING" ? $"{nameText} (печатает...)" : nameText,
+                    Foreground = Brushes.White,
+                    FontSize = 16,
+                    Margin = new Thickness(5, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+
+                userPanel.Children.Add(statusCircle);
+                userPanel.Children.Add(name);
+                UsersList.Items.Add(userPanel);
+            }
+        }
+
+        private void ReceiveFile(string header)
+        {
+            int newline = header.IndexOf('\n');
+            if (newline < 0) return;
+
+            string fileHeader = header.Substring(5, newline - 5);
+            string[] parts = fileHeader.Split('|');
+            if (parts.Length != 3) return;
+
+            string fileName = parts[0];
+            string fileType = parts[1];
+            int fileSize = int.Parse(parts[2]);
+
+            byte[] fileBytes = new byte[fileSize];
+            int totalRead = 0;
+
+            while (totalRead < fileSize)
+            {
+                int read = stream.Read(fileBytes, totalRead, fileSize - totalRead);
+                if (read == 0) break;
+                totalRead += read;
+            }
+
+            string tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid() + "_" + fileName);
+            System.IO.File.WriteAllBytes(tempPath, fileBytes);
+
+            AddFileMessage("Система", fileName, tempPath, false);
+        }
+
         private void Send_Click(object sender, RoutedEventArgs e)
         {
             tek_message = Message.Text;
+            if (string.IsNullOrWhiteSpace(tek_message)) return;
 
-            if (string.IsNullOrWhiteSpace(tek_message))
-                return;
-
-            string fullMessage = tek_message;
-            byte[] data = Encoding.UTF8.GetBytes(fullMessage);
-
-            try
-            {
-                stream.Write(data, 0, data.Length);
-            }
+            byte[] data = Encoding.UTF8.GetBytes(tek_message);
+            try { stream.Write(data, 0, data.Length); }
             catch
             {
-                MessageBox.Show("Не удалось отправить сообщение. Сервер недоступен.",
-                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Не удалось отправить сообщение. Сервер недоступен.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
             AddMessage(CurrentUser.Text, tek_message, true);
-
             Message.Text = "";
             Message.Focus();
-
-
         }
 
         private void AddMessage(string sender, string text, bool isOwn)
@@ -248,6 +260,76 @@ namespace MaX
             ChatScroll.ScrollToEnd();
         }
 
+        private void AddFileMessage(string sender, string fileName, string filePath, bool isOwn)
+        {
+            StackPanel messagePanel = new StackPanel
+            {
+                HorizontalAlignment = isOwn ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+                Margin = new Thickness(5)
+            };
+
+            TextBlock userBlock = new TextBlock
+            {
+                Text = sender,
+                FontSize = 14,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.LightGray
+            };
+
+            Button fileButton = new Button
+            {
+                Content = $"📎 {fileName}",
+                Background = isOwn ? new SolidColorBrush(Color.FromRgb(0, 128, 64)) : new SolidColorBrush(Color.FromRgb(64, 64, 64)),
+                Foreground = Brushes.White,
+                Padding = new Thickness(5),
+                Cursor = Cursors.Hand
+            };
+
+            fileButton.Click += (s, e) =>
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(filePath) { UseShellExecute = true });
+            };
+
+            TextBlock timeBlock = new TextBlock
+            {
+                Text = DateTime.Now.ToString("HH:mm"),
+                FontSize = 12,
+                Foreground = Brushes.LightGray,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+
+            messagePanel.Children.Add(userBlock);
+            messagePanel.Children.Add(fileButton);
+            messagePanel.Children.Add(timeBlock);
+
+            MessagesPanel.Children.Add(messagePanel);
+            ChatScroll.ScrollToEnd();
+        }
+
+        private void SendFile_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog();
+            dlg.Title = "Выберите файл";
+            dlg.Filter = "Все файлы|*.*";
+
+            if (dlg.ShowDialog() != true) return;
+
+            string filePath = dlg.FileName;
+            byte[] fileBytes = System.IO.File.ReadAllBytes(filePath);
+            string fileName = System.IO.Path.GetFileName(filePath);
+            string fileType = System.IO.Path.GetExtension(filePath);
+
+            string header = $"FILE:{fileName}|{fileType}|{fileBytes.Length}\n";
+            byte[] headerBytes = Encoding.UTF8.GetBytes(header);
+            stream.Write(headerBytes, 0, headerBytes.Length);
+
+            stream.Write(fileBytes, 0, fileBytes.Length);
+
+            string tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid() + "_" + fileName);
+            System.IO.File.WriteAllBytes(tempPath, fileBytes);
+            AddFileMessage(CurrentUser.Text, fileName, tempPath, true);
+        }
+
         private void Del_Chat_Click(object sender, RoutedEventArgs e)
         {
             MessagesPanel.Children.Clear();
@@ -257,7 +339,7 @@ namespace MaX
         {
             string[] smiles = new string[]
             {
-        "😀","😁","😂","🤣","😊","😍","😎","😢","😡","👍","👎","❤️","🔥","🎉","✨"
+                "😀","😁","😂","🤣","😊","😍","😎","😢","😡","👍","👎","❤️","🔥","🎉","✨"
             };
 
             foreach (string smile in smiles)

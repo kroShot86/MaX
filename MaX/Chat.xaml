@@ -44,11 +44,13 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10*"/>
                     <ColumnDefinition Width="1*"/>
+                    <ColumnDefinition Width="1*"/>
                     <ColumnDefinition Width="2*"/>
                 </Grid.ColumnDefinitions>
                 <TextBox x:Name="Message" Grid.Column="0" FontSize="16" Background="#333333" Padding="5" Foreground="White" BorderThickness="0" HorizontalContentAlignment="Left" AcceptsReturn="False" TextWrapping="NoWrap" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Auto"/>
-                <Button x:Name="Smile" Grid.Column="1" Content="😀" FontSize="36" Background="#FF51CEDE"/>
-                <Button x:Name="Send" Grid.Column="2" Content="Отправить" Width="100" Background="#1ABC9C" Foreground="White" FontSize="19" Click="Send_Click"/>
+                <Button x:Name="SendFile" Grid.Column="1" Content="📎" Background="#3498DB" Foreground="White" FontSize="34" Click="SendFile_Click"/>
+                <Button x:Name="Smile" Grid.Column="2" Content="😀" FontSize="36" Background="#FF51CEDE"/>
+                <Button x:Name="Send" Grid.Column="3" Content="Отправить" Width="100" Background="#1ABC9C" Foreground="White" FontSize="19" Click="Send_Click"/>
                 <WrapPanel x:Name="SmilePanel" Grid.Row="1" Grid.ColumnSpan="3" Visibility="Collapsed" Background="#333333" Margin="5" HorizontalAlignment="Left" />
             </Grid>
         </Grid>
