@@ -10,6 +10,9 @@ using System.Windows.Media;
 using System.Net.Sockets;
 using System.Threading;
 using System.Windows.Shapes;
+using Microsoft.VisualBasic;
+using Newtonsoft.Json;
+
 
 namespace MaX
 {
@@ -38,9 +41,29 @@ namespace MaX
                     ? Visibility.Collapsed
                     : Visibility.Visible;
             };
+            LoadMessageHistory();
 
             ConnectToServer();
         }
+        class ChatMessageRecord
+        {
+            public string Sender { get; set; }
+            public string Text { get; set; }
+            public bool IsOwn { get; set; }
+            public DateTime Time { get; set; }
+        }
+        private readonly string historyFile = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MaXChatHistory.json");
+
+        class ChatMessage
+        {
+            public Guid Id { get; } = Guid.NewGuid();
+            public string Sender { get; set; }
+            public string Text { get; set; }
+            public bool IsOwn { get; set; }
+            public StackPanel Panel { get; set; }
+        }
+
+        List<ChatMessage> messages = new List<ChatMessage>();
 
         private void SendStatus(string status)
         {
@@ -97,6 +120,21 @@ namespace MaX
                         {
                             ReceiveFile(message);
                         }
+                        else if (message.StartsWith("EDIT:"))
+                        {
+                            string[] parts = message.Substring(5).Split(new char[] { '|' }, 2);
+                            if (parts.Length < 2) return;
+
+                            Guid id = Guid.Parse(parts[0]);
+                            string newText = parts[1];
+
+                            var msg = messages.FirstOrDefault(m => m.Id == id);
+                            if (msg != null)
+                            {
+                                msg.Text = newText;
+                                (msg.Panel.Children[1] as TextBlock).Text = newText;
+                            }
+                        }
                         else
                         {
                             int sep = message.IndexOf(": ");
@@ -105,6 +143,7 @@ namespace MaX
                                 string sender = message.Substring(0, sep);
                                 string text = message.Substring(sep + 2);
                                 AddMessage(sender, text, sender == CurrentUser.Text);
+                                SaveMessageHistory();
                             }
                         }
                     });
@@ -211,6 +250,8 @@ namespace MaX
             }
 
             AddMessage(CurrentUser.Text, tek_message, true);
+            SaveMessageHistory();
+
             Message.Text = "";
             Message.Focus();
         }
@@ -258,6 +299,46 @@ namespace MaX
 
             MessagesPanel.Children.Add(messagePanel);
             ChatScroll.ScrollToEnd();
+
+            if (isOwn)
+            {
+                // Контекстное меню для редактирования/удаления
+                ContextMenu menu = new ContextMenu();
+
+                MenuItem edit = new MenuItem { Header = "Редактировать" };
+                edit.Click += (s, e) =>
+                {
+                    // Находим ChatMessage по панели TextBlock
+                    var panel = textBlock.Parent as StackPanel;
+                    var msg = messages.FirstOrDefault(m => m.Panel == panel);
+                    if (msg != null)
+                    {
+                        EditMessage(msg); // вызываем метод с правильным типом
+                    }
+                };
+
+                MenuItem del = new MenuItem { Header = "Удалить" };
+                del.Click += (s, e) => DeleteMessage(messagePanel);
+
+                menu.Items.Add(edit);
+                menu.Items.Add(del);
+
+                messagePanel.ContextMenu = menu;
+            }
+
+            // Сохраняем сообщение
+            messages.Add(new ChatMessage
+            {
+                Sender = sender,
+                Text = text,
+                IsOwn = isOwn,
+                Panel = messagePanel
+            });
+
+            if (!isOwn)
+            {
+                System.Media.SystemSounds.Asterisk.Play();
+            }
         }
 
         private void AddFileMessage(string sender, string fileName, string filePath, bool isOwn)
@@ -366,6 +447,133 @@ namespace MaX
                 };
 
                 SmilePanel.Children.Add(btn);
+            }
+        }
+
+        private string ShowInputDialog(string prompt, string defaultText = "")
+        {
+            // Создаем окно
+            Window inputWindow = new Window
+            {
+                Width = 400,
+                Height = 150,
+                Title = "Редактирование",
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                ResizeMode = ResizeMode.NoResize,
+                WindowStyle = WindowStyle.ToolWindow,
+                Owner = this
+            };
+
+            // Создаем StackPanel для контента
+            StackPanel panel = new StackPanel { Margin = new Thickness(10) };
+
+            TextBlock textBlock = new TextBlock
+            {
+                Text = prompt,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+
+            TextBox textBox = new TextBox
+            {
+                Text = defaultText,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+
+            // Кнопки
+            StackPanel buttonsPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+
+            Button okButton = new Button
+            {
+                Content = "OK",
+                Width = 75,
+                Margin = new Thickness(5, 0, 0, 0),
+                IsDefault = true
+            };
+            okButton.Click += (s, e) => inputWindow.DialogResult = true;
+
+            Button cancelButton = new Button
+            {
+                Content = "Отмена",
+                Width = 75,
+                Margin = new Thickness(5, 0, 0, 0),
+                IsCancel = true
+            };
+            cancelButton.Click += (s, e) => inputWindow.DialogResult = false;
+
+            buttonsPanel.Children.Add(okButton);
+            buttonsPanel.Children.Add(cancelButton);
+
+            panel.Children.Add(textBlock);
+            panel.Children.Add(textBox);
+            panel.Children.Add(buttonsPanel);
+
+            inputWindow.Content = panel;
+
+            // Показываем окно модально
+            bool? result = inputWindow.ShowDialog();
+
+            if (result == true)
+                return textBox.Text;
+            else
+                return null;
+        }
+
+        private void EditMessage(ChatMessage msg)
+        {
+            string newText = ShowInputDialog("Редактировать сообщение:", msg.Text);
+            if (string.IsNullOrWhiteSpace(newText)) return;
+
+            // Обновляем локально
+            msg.Text = newText;
+            (msg.Panel.Children[1] as TextBlock).Text = newText;
+
+            // Отправляем на сервер
+            string editMessage = $"EDIT:{msg.Id}|{newText}";
+            byte[] data = Encoding.UTF8.GetBytes(editMessage);
+            stream.Write(data, 0, data.Length);
+        }
+
+        private void DeleteMessage(StackPanel panel)
+        {
+            MessagesPanel.Children.Remove(panel);
+
+            var msg = messages.FirstOrDefault(m => m.Panel == panel);
+            if (msg != null)
+                messages.Remove(msg);
+
+        }
+        private void SaveMessageHistory()
+        {
+            var records = messages.Select(m => new ChatMessageRecord
+            {
+                Sender = m.Sender,
+                Text = m.Text,
+                IsOwn = m.IsOwn,
+                Time = DateTime.Now
+            }).ToList();
+
+            // Используем Newtonsoft.Json
+            string json = JsonConvert.SerializeObject(records, Formatting.Indented);
+            System.IO.File.WriteAllText(historyFile, json);
+        }
+        private void LoadMessageHistory()
+        {
+            if (!System.IO.File.Exists(historyFile)) return;
+
+            string json = System.IO.File.ReadAllText(historyFile);
+
+            // Используем Newtonsoft.Json
+            var records = JsonConvert.DeserializeObject<List<ChatMessageRecord>>(json);
+
+            if (records == null) return;
+
+            foreach (var r in records)
+            {
+                AddMessage(r.Sender, r.Text, r.IsOwn);
             }
         }
     }
